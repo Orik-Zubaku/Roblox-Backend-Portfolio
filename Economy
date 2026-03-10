@@ -1,0 +1,62 @@
+local Players = game:GetService("Players")
+local DataStoreService = game:GetService("DataStoreService")
+local coinsStore = DataStoreService:GetDataStore("CoinsStore")
+
+local DEFAULT_COINS = 100
+
+-- Helper function to load player coins safely
+local function loadCoins(player)
+    local coins = Instance.new("IntValue")
+    coins.Name = "Coins"
+    coins.Parent = player
+
+    local success, data = pcall(function()
+        return coinsStore:GetAsync(player.UserId)
+    end)
+    
+    if success then
+        coins.Value = data or DEFAULT_COINS
+    else
+        warn("Failed to load coins for "..player.Name)
+        coins.Value = DEFAULT_COINS
+    end
+end
+
+-- Helper function to save coins
+local function saveCoins(player)
+    local coins = player:FindFirstChild("Coins")
+    if not coins then return end
+
+    local success, err = pcall(function()
+        coinsStore:SetAsync(player.UserId, coins.Value)
+    end)
+
+    if not success then
+        warn("Failed to save coins for "..player.Name..": "..err)
+    end
+end
+
+-- Award daily bonus if eligible
+local DAILY_REWARD = 50
+local dailyStore = DataStoreService:GetDataStore("DailyRewards")
+local function checkDailyReward(player)
+    local success, lastClaim = pcall(function()
+        return dailyStore:GetAsync(player.UserId)
+    end)
+    local now = os.time()
+    if success then
+        if not lastClaim or now - lastClaim >= 86400 then
+            player.Coins.Value += DAILY_REWARD
+            pcall(function()
+                dailyStore:SetAsync(player.UserId, now)
+            end)
+        end
+    end
+end
+
+Players.PlayerAdded:Connect(function(player)
+    loadCoins(player)
+    checkDailyReward(player)
+end)
+
+Players.PlayerRemoving:Connect(saveCoins)
