@@ -1,0 +1,25 @@
+local Players = game:GetService("Players")
+local DataStoreService = game:GetService("DataStoreService")
+local dailyStore = DataStoreService:GetDataStore("DailyRewards")
+
+local REWARD_AMOUNT = 50
+
+local function giveDailyReward(player)
+    local lastClaim = 0
+    local success, data = pcall(function()
+        return dailyStore:GetAsync(player.UserId)
+    end)
+    if success and data then lastClaim = data end
+
+    local now = os.time()
+    if now - lastClaim >= 86400 then
+        player:FindFirstChild("Coins").Value += REWARD_AMOUNT
+        pcall(function()
+            dailyStore:SetAsync(player.UserId, now)
+        end)
+    end
+end
+
+Players.PlayerAdded:Connect(function(player)
+    giveDailyReward(player)
+end)
